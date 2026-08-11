@@ -1,29 +1,37 @@
 import { useEffect, useState } from 'react';
 import { ClubSelect } from './pages/ClubSelect';
 import { Dashboard } from './pages/Dashboard';
+import { LeagueScreen } from './pages/LeagueScreen';
 import { MatchResult } from './pages/MatchResult';
 import { MatchScreen } from './pages/MatchScreen';
 import { SquadScreen } from './pages/SquadScreen';
 import { TacticsScreen } from './pages/TacticsScreen';
+import { TutorialModal } from './components/TutorialModal';
+import { getClub } from './data/clubs';
 import { createMatch, summariseMatch } from './engine/matchEngine';
 import {
   clearCareer,
   completeFixture,
   createCareer,
   loadCareer,
+  markTutorialSeen,
   nextFixture,
   saveCareer,
   setTactics,
 } from './state/career';
 import type { Career, MatchState, Tactics } from './types';
 
-type Screen = 'dashboard' | 'squad' | 'tactics';
+type Screen = 'dashboard' | 'squad' | 'tactics' | 'league';
 
 export default function App() {
   const [career, setCareer] = useState<Career | null>(() => loadCareer());
   const [screen, setScreen] = useState<Screen>('dashboard');
   const [match, setMatch] = useState<MatchState | null>(null);
   const [finished, setFinished] = useState<MatchState | null>(null);
+  // Shown automatically on a first career, and on demand from the dashboard.
+  const [showTutorial, setShowTutorial] = useState<boolean>(
+    () => career !== null && !career.tutorialSeen,
+  );
 
   // Every change to the career is written straight back, so a refresh mid-season
   // costs nothing.
@@ -34,6 +42,12 @@ export default function App() {
   function start(managerName: string, clubId: string) {
     setCareer(createCareer(managerName, clubId));
     setScreen('dashboard');
+    setShowTutorial(true);
+  }
+
+  function dismissTutorial() {
+    setShowTutorial(false);
+    setCareer((current) => (current ? markTutorialSeen(current) : current));
   }
 
   function playMatch() {
@@ -111,15 +125,32 @@ export default function App() {
           <NavButton current={screen} value="tactics" onSelect={setScreen}>
             Tactics
           </NavButton>
+          <NavButton current={screen} value="league" onSelect={setScreen}>
+            Table
+          </NavButton>
           <button type="button" className="nav__item nav__item--danger" onClick={abandonCareer}>
             New career
           </button>
         </nav>
       }
     >
-      {screen === 'dashboard' && <Dashboard career={career} onPlayMatch={playMatch} />}
+      {screen === 'dashboard' && (
+        <Dashboard
+          career={career}
+          onPlayMatch={playMatch}
+          onShowTutorial={() => setShowTutorial(true)}
+        />
+      )}
       {screen === 'squad' && <SquadScreen clubId={career.clubId} />}
       {screen === 'tactics' && <TacticsScreen tactics={career.tactics} onChange={updateTactics} />}
+      {screen === 'league' && <LeagueScreen career={career} />}
+
+      {showTutorial && (
+        <TutorialModal
+          clubName={getClub(career.clubId).name}
+          onClose={dismissTutorial}
+        />
+      )}
     </Shell>
   );
 }

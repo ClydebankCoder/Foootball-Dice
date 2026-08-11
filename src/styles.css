@@ -408,8 +408,14 @@ button {
   margin-top: 1rem;
 }
 
+/* Four stats read better two-by-two than three-plus-a-stray. */
+.stat-row--pairs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 @media (min-width: 620px) {
-  .stat-row {
+  .stat-row,
+  .stat-row--pairs {
     grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   }
 }
@@ -457,6 +463,195 @@ button {
 .fixture__meta {
   text-align: center;
   font-size: 0.85rem;
+}
+
+/* -------------------------------------------------------------- fixtures */
+
+.fixtures {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.fixture-row {
+  display: grid;
+  grid-template-columns: 2rem 1fr 3.5rem 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+
+.fixture-row.is-you {
+  background: rgba(62, 166, 255, 0.1);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.fixture-row__round {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.fixture-row__club {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fixture-row__club--home {
+  text-align: right;
+}
+
+.fixture-row__club.is-mine {
+  font-weight: 700;
+}
+
+.fixture-row__score {
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg);
+  border-radius: 5px;
+  padding: 0.1rem 0.3rem;
+}
+
+/* ------------------------------------------------------------------ modal */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(4, 8, 12, 0.78);
+  backdrop-filter: blur(3px);
+  animation: fade-in 0.18s ease-out;
+  overflow-y: auto;
+}
+
+.modal {
+  width: 100%;
+  max-width: 34rem;
+  margin: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: clamp(1.1rem, 4vw, 1.6rem);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  animation: rise 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+  /* Keep the dismiss button on screen: the middle scrolls, the ends don't. */
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+}
+
+.modal__head,
+.modal > .btn {
+  flex: none;
+}
+
+.modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.modal__title {
+  font-size: clamp(1.5rem, 5vw, 1.9rem);
+  letter-spacing: -0.02em;
+  margin-bottom: 1.1rem;
+}
+
+.modal__note {
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .modal {
+    animation: none;
+  }
+}
+
+.beats {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin-bottom: 1.1rem;
+}
+
+.beat {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: 0.85rem;
+}
+
+.beat__number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--accent);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.beat__title {
+  font-size: 1rem;
+  margin-bottom: 0.2rem;
+}
+
+.beat__text {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.beat__example {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.6rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--balanced);
+  border-radius: var(--radius-sm);
+}
+
+.beat__example-name {
+  font-weight: 700;
+}
+
+.beat__example-pct {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--balanced);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ------------------------------------------------------------------ tables */

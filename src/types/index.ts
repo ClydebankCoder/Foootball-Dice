@@ -388,6 +388,8 @@ export interface Career {
   version: number;
   managerName: string;
   clubId: string;
+  /** The how-it-works briefing is shown once, when the job is taken. */
+  tutorialSeen: boolean;
   tactics: Tactics;
   fixtures: Fixture[];
   records: ManagerRecords;

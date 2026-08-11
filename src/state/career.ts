@@ -35,6 +35,7 @@ export function createCareer(managerName: string, clubId: string): Career {
     version: CAREER_VERSION,
     managerName: managerName.trim() || 'The Gaffer',
     clubId,
+    tutorialSeen: false,
     tactics: { ...DEFAULT_TACTICS },
     fixtures: generateFixtures(leagueClubIds()),
     records: {
@@ -115,6 +116,10 @@ export function completeFixture(career: Career, summary: MatchSummary): Career {
 
 export function setTactics(career: Career, tactics: Tactics): Career {
   return { ...career, tactics };
+}
+
+export function markTutorialSeen(career: Career): Career {
+  return { ...career, tutorialSeen: true };
 }
 
 /* --------------------------------------------------------------- persistence */

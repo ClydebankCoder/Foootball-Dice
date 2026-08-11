@@ -3,14 +3,14 @@ import { getClubWithSquad } from '../data/world';
 import { ordinal, positionOf } from '../engine/league';
 import { nextFixture, tableFor } from '../state/career';
 import type { Career } from '../types';
-import { LeagueTable } from '../components/LeagueTable';
 
 interface Props {
   career: Career;
   onPlayMatch: () => void;
+  onShowTutorial: () => void;
 }
 
-export function Dashboard({ career, onPlayMatch }: Props) {
+export function Dashboard({ career, onPlayMatch, onShowTutorial }: Props) {
   const club = getClubWithSquad(career.clubId);
   const table = tableFor(career);
   const row = table.find((r) => r.clubId === career.clubId)!;
@@ -26,15 +26,6 @@ export function Dashboard({ career, onPlayMatch }: Props) {
         <p className="muted">
           {LEAGUE_NAMES[club.league]} · {ordinal(position)} · {row.points} pts
         </p>
-
-        <dl className="stat-row">
-          <Stat label="Played" value={row.played} />
-          <Stat label="Won" value={row.won} />
-          <Stat label="Drawn" value={row.drawn} />
-          <Stat label="Lost" value={row.lost} />
-          <Stat label="GF" value={row.goalsFor} />
-          <Stat label="GA" value={row.goalsAgainst} />
-        </dl>
       </section>
 
       <section className="card">
@@ -64,8 +55,20 @@ export function Dashboard({ career, onPlayMatch }: Props) {
       </section>
 
       <section className="card">
-        <h2 className="card__title">Manager records</h2>
+        <h2 className="card__title">Season</h2>
         <dl className="stat-row">
+          <Stat label="Played" value={row.played} />
+          <Stat label="Won" value={row.won} />
+          <Stat label="Drawn" value={row.drawn} />
+          <Stat label="Lost" value={row.lost} />
+          <Stat label="GF" value={row.goalsFor} />
+          <Stat label="GA" value={row.goalsAgainst} />
+        </dl>
+      </section>
+
+      <section className="card">
+        <h2 className="card__title">Manager records</h2>
+        <dl className="stat-row stat-row--pairs">
           <Stat label="Actions attempted" value={records.actionsAttempted} />
           <Stat label="Successful" value={records.actionsSuccessful} />
           <Stat
@@ -93,10 +96,9 @@ export function Dashboard({ career, onPlayMatch }: Props) {
         )}
       </section>
 
-      <section className="card">
-        <h2 className="card__title">{LEAGUE_NAMES[club.league]}</h2>
-        <LeagueTable rows={table} highlightClubId={career.clubId} />
-      </section>
+      <button type="button" className="btn btn--ghost btn--block" onClick={onShowTutorial}>
+        How the dice work
+      </button>
     </div>
   );
 }
