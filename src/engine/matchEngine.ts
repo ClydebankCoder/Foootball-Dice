@@ -15,11 +15,14 @@ import type {
   MatchLogEntry,
   MatchState,
   MatchSummary,
+  OutcomeBand,
   Player,
   Position,
   ProbabilityBreakdown,
+  ProbabilityFactor,
   Resolution,
   SituationId,
+  SituationSide,
   Tactics,
   TeamMatchStats,
 } from '../types';
@@ -44,6 +47,13 @@ import {
 
 /** How many decisions one passage of play can run to before it fizzles out. */
 const MAX_SEQUENCE_STEPS = 3;
+/**
+ * What a critical result is worth to the *next* decision in the same passage
+ * of play. Pulling something off perfectly should leave you better placed than
+ * scraping it, and getting it badly wrong should cost you more than a miss.
+ */
+const CRITICAL_SUCCESS_BONUS = 10;
+const CRITICAL_FAILURE_PENALTY = 8;
 const FULL_TIME = 90;
 /** Longest stretch of football simulated in one go between key moments. */
 const SIM_CHUNK_MINUTES = 10;
@@ -202,6 +212,7 @@ export function createMatch(setup: MatchSetup): MatchState {
     momentsStarted: 0,
     pendingSituation: null,
     sequenceStep: 0,
+    carriedAdvantage: null,
   };
 
   log(state, 'period', 'Kick-off.');
@@ -373,7 +384,9 @@ export function advanceMatch(state: MatchState): MatchState {
     return next;
   }
 
+  // A brand new passage of play starts clean — nothing carries between them.
   next.sequenceStep = 0;
+  next.carriedAdvantage = null;
 
   // Stop once the schedule runs out or the manager has had their say — a
   // passage of play can chain several decisions, and the budget is what keeps
@@ -428,6 +441,7 @@ export function contextForEvent(state: MatchState, event: MatchEvent): ActionCon
     situation: getSituation(event.situation),
     isHome: userIsHome(state),
     minute: state.minute,
+    carriedAdvantage: state.carriedAdvantage,
   };
 }
 
@@ -455,9 +469,14 @@ export interface CommitResult {
 function endSequence(state: MatchState): void {
   state.pendingSituation = null;
   state.sequenceStep = 0;
+  state.carriedAdvantage = null;
 }
 
-function continueSequence(state: MatchState, situation: SituationId): void {
+function continueSequence(
+  state: MatchState,
+  situation: SituationId,
+  advantage: ProbabilityFactor | null,
+): void {
   if (state.sequenceStep + 1 >= MAX_SEQUENCE_STEPS) {
     endSequence(state);
     log(state, 'info', 'The move runs out of steam and the ball is worked back.');
@@ -465,6 +484,25 @@ function continueSequence(state: MatchState, situation: SituationId): void {
   }
   state.sequenceStep += 1;
   state.pendingSituation = situation;
+  state.carriedAdvantage = advantage;
+}
+
+/**
+ * What the last decision leaves behind for the next one.
+ *
+ * Only the critical bands carry — an ordinary success is its own reward, and
+ * making every outcome leave a trace would turn the breakdown into noise.
+ */
+function advantageFrom(side: SituationSide, band: OutcomeBand): ProbabilityFactor | null {
+  if (band === 'critical-success') {
+    return side === 'attack'
+      ? { label: 'Defence scrambling', value: CRITICAL_SUCCESS_BONUS }
+      : { label: 'You have them contained', value: CRITICAL_SUCCESS_BONUS };
+  }
+  if (band === 'critical-failure' && side === 'defence') {
+    return { label: 'Caught out of position', value: -CRITICAL_FAILURE_PENALTY };
+  }
+  return null;
 }
 
 /**
@@ -514,6 +552,7 @@ export function commitAction(
 
   const us = userKey(next);
   const them = oppositionKey(next);
+  const advantage = advantageFrom(event.side, outcome.band);
   let ledToGoal = false;
 
   if (event.side === 'attack') {
@@ -541,7 +580,7 @@ export function commitAction(
             ? (intent.next ?? situationId)
             : situationId;
       log(next, 'decision', resolution.commentary, resolution);
-      continueSequence(next, nextSituation);
+      continueSequence(next, nextSituation, advantage);
     } else {
       log(next, 'decision', resolution.commentary, resolution);
       endSequence(next);
@@ -559,7 +598,7 @@ export function commitAction(
     if (outcome.success) {
       log(next, 'decision', resolution.commentary, resolution);
       if (intent.kind === 'delay') {
-        continueSequence(next, intent.next);
+        continueSequence(next, intent.next, advantage);
       } else {
         endSequence(next);
       }
@@ -576,7 +615,7 @@ export function commitAction(
         log(next, 'conceded', `${concededCall(rng)} ${scorer.name} makes you pay.`);
         endSequence(next);
       } else {
-        continueSequence(next, escalation);
+        continueSequence(next, escalation, advantage);
       }
     }
   }

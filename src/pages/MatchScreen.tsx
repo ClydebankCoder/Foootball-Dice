@@ -29,7 +29,7 @@ import {
 import { getClub } from '../data/clubs';
 import { getClubWithSquad } from '../data/world';
 import type { MatchState } from '../types';
-import { probabilityBand, SITUATION_KICKER } from '../utils/format';
+import { probabilityBand, signed, SITUATION_KICKER } from '../utils/format';
 
 type Stage = 'choosing' | 'locked' | 'rolling' | 'revealed';
 
@@ -124,6 +124,20 @@ export function MatchScreen({ initialState, onFinish }: Props) {
               ? `${actorName} has it. ${opponent.shortName} are set.`
               : `${opponent.shortName} are coming at you. ${actorName} has to deal with it.`}
           </p>
+
+          {state.carriedAdvantage && (
+            <p
+              className={`advantage ${
+                state.carriedAdvantage.value > 0 ? 'is-good' : 'is-bad'
+              }`}
+            >
+              <span aria-hidden="true">{state.carriedAdvantage.value > 0 ? '⚡' : '⚠'}</span>
+              <span>
+                <strong>{state.carriedAdvantage.label}</strong> — that last roll is worth{' '}
+                {signed(state.carriedAdvantage.value)} on this decision.
+              </span>
+            </p>
+          )}
         </section>
       )}
 

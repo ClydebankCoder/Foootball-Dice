@@ -38,6 +38,13 @@ export interface ActionContext {
   situation: SituationDefinition;
   isHome: boolean;
   minute: number;
+  /**
+   * A modifier carried over from the previous decision in the same passage of
+   * play — see `MatchState.carriedAdvantage`. Listed like any other factor,
+   * because a bonus the player cannot see is exactly the kind of hidden hand
+   * this game exists to avoid.
+   */
+  carriedAdvantage?: ProbabilityFactor | null;
 }
 
 const ATTRIBUTE_LABELS: Record<AttributeKey, string> = {
@@ -147,8 +154,11 @@ export function calculateProbability(
   action: MatchAction,
   context: ActionContext,
 ): ProbabilityBreakdown {
-  const { actor, opposition, tactics, situation, isHome, minute } = context;
+  const { actor, opposition, tactics, situation, isHome, minute, carriedAdvantage } =
+    context;
   const factors: ProbabilityFactor[] = [];
+
+  if (carriedAdvantage) factors.push({ ...carriedAdvantage });
 
   for (const [key, weight] of Object.entries(action.attributeWeights)) {
     if (!weight) continue;

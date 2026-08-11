@@ -941,6 +941,29 @@ legend {
   margin-bottom: 0.5rem;
 }
 
+.advantage {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.advantage.is-good {
+  background: rgba(53, 208, 127, 0.12);
+  box-shadow: inset 2px 0 0 var(--success);
+  color: #b7f0d2;
+}
+
+.advantage.is-bad {
+  background: rgba(255, 92, 108, 0.12);
+  box-shadow: inset 2px 0 0 var(--failure);
+  color: #ffc4ca;
+}
+
 /* ----------------------------------------------------------------- actions */
 
 .actions {

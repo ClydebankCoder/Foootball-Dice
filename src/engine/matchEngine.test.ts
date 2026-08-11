@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   advanceMatch,
   commitAction,
+  contextForEvent,
   createMatch,
   getDecisionOptions,
   summariseDecisions,
 } from './matchEngine';
 import type { MatchState, Tactics } from '../types';
+import { getActionsForSituation } from './actions';
+import { calculateProbability } from './probability';
 import { createSeededRng } from './random';
 
 const TACTICS: Tactics = {
@@ -164,6 +167,135 @@ describe('decisions', () => {
   it('refuses to commit when there is nothing to decide', () => {
     const state = newMatch(9);
     expect(() => commitAction(state, 'short-pass')).toThrow();
+  });
+});
+
+describe('critical results carry into the next decision', () => {
+  /**
+   * Finds an attacking decision whose success would continue the move.
+   *
+   * It scans seeds rather than trusting one, because a match can legitimately
+   * hand the manager nothing but defensive moments. Deterministic: the same
+   * scan always lands on the same state.
+   */
+  function attackingChainableState() {
+    for (let seed = 1; seed <= 60; seed++) {
+      let state = advanceMatch(newMatch(seed));
+      for (let i = 0; i < 60 && state.phase !== 'full-time'; i++) {
+        if (state.phase === 'decision' && state.currentEvent?.side === 'attack') {
+          const option = getDecisionOptions(state).find(
+            (o) => o.action.intent.kind === 'advance' || o.action.intent.kind === 'retain',
+          );
+          if (option) return { state, actionId: option.action.id };
+        }
+        if (state.phase === 'decision') {
+          state = commitAction(state, getDecisionOptions(state)[0].action.id).state;
+        }
+        state = advanceMatch(state);
+      }
+    }
+    throw new Error('no chainable attacking decision found in 60 seeds');
+  }
+
+  it('hands a bonus to the follow-up after a critical success', () => {
+    const { state, actionId } = attackingChainableState();
+    // A roll of 1 is a critical success at any probability.
+    const after = commitAction(state, actionId, { roll: 1 }).state;
+
+    expect(after.lastResolution?.band).toBe('critical-success');
+    expect(after.pendingSituation).not.toBeNull();
+    expect(after.carriedAdvantage).toEqual({ label: 'Defence scrambling', value: 10 });
+  });
+
+  it('shows that bonus by name in the next decision’s breakdown', () => {
+    const { state, actionId } = attackingChainableState();
+    const next = advanceMatch(commitAction(state, actionId, { roll: 1 }).state);
+
+    expect(next.phase).toBe('decision');
+    for (const option of getDecisionOptions(next)) {
+      const factor = option.breakdown.factors.find((f) => f.label === 'Defence scrambling');
+      expect(factor).toEqual({ label: 'Defence scrambling', value: 10 });
+      // The itemised numbers must still add up to what the player is shown.
+      const sum =
+        option.breakdown.base +
+        option.breakdown.factors.reduce((total, f) => total + f.value, 0);
+      expect(sum).toBe(option.breakdown.raw);
+    }
+  });
+
+  it('actually raises the odds of the follow-up', () => {
+    const { state, actionId } = attackingChainableState();
+    const next = advanceMatch(commitAction(state, actionId, { roll: 1 }).state);
+    const event = next.currentEvent!;
+    const withBonus = contextForEvent(next, event);
+    const without = { ...withBonus, carriedAdvantage: null };
+
+    let improved = 0;
+    for (const action of getActionsForSituation(event.situation)) {
+      const a = calculateProbability(action, withBonus);
+      const b = calculateProbability(action, without);
+      // Before clamping, the bonus is worth exactly its stated value.
+      expect(a.raw - b.raw).toBe(10);
+      if (a.final > b.final) improved += 1;
+    }
+    expect(improved).toBeGreaterThan(0);
+  });
+
+  it('an ordinary success carries nothing', () => {
+    const { state, actionId } = attackingChainableState();
+    const probability = getDecisionOptions(state).find((o) => o.action.id === actionId)!
+      .probability;
+    // Inside the probability, but above the critical threshold.
+    const after = commitAction(state, actionId, { roll: probability }).state;
+
+    expect(after.lastResolution?.band).toBe('success');
+    expect(after.carriedAdvantage).toBeNull();
+  });
+
+  it('keeps the bonus off a fresh passage of play', () => {
+    const { state, actionId } = attackingChainableState();
+    // Rolling 100 is a failure, which ends the move.
+    const after = commitAction(state, actionId, { roll: 100 }).state;
+    expect(after.carriedAdvantage).toBeNull();
+    expect(after.pendingSituation).toBeNull();
+
+    const next = advanceMatch(after);
+    if (next.phase === 'decision') {
+      for (const option of getDecisionOptions(next)) {
+        expect(
+          option.breakdown.factors.some((f) => f.label === 'Defence scrambling'),
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('never leaves an advantage hanging around at full time', () => {
+    for (const seed of [3, 33, 333]) {
+      const state = playMatch(seed, safest);
+      expect(state.carriedAdvantage).toBeNull();
+    }
+  });
+
+  it('respects the 1-99 clamp even with the bonus applied', () => {
+    const seen: number[] = [];
+    for (const seed of [11, 222, 3333]) {
+      let state = advanceMatch(newMatch(seed));
+      let guard = 0;
+      while (state.phase !== 'full-time') {
+        if (++guard > 500) throw new Error('stuck');
+        if (state.phase === 'decision') {
+          for (const option of getDecisionOptions(state)) seen.push(option.probability);
+          // Roll 1 every time: maximum criticals, maximum carried bonuses.
+          state = commitAction(state, getDecisionOptions(state)[0].action.id, {
+            roll: 1,
+          }).state;
+        }
+        state = advanceMatch(state);
+      }
+    }
+    expect(seen.length).toBeGreaterThan(0);
+    expect(Math.min(...seen)).toBeGreaterThanOrEqual(1);
+    expect(Math.max(...seen)).toBeLessThanOrEqual(99);
   });
 });
 

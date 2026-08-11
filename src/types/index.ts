@@ -350,6 +350,13 @@ export interface MatchState {
   /** Set while a possession sequence is still running. */
   pendingSituation: SituationId | null;
   sequenceStep: number;
+  /**
+   * A modifier earned by the previous decision in this passage of play — a
+   * critical success leaves the defence scrambling, a critical failure leaves
+   * you out of position. It applies to the next decision only, and appears in
+   * that decision's breakdown by name like every other modifier.
+   */
+  carriedAdvantage: ProbabilityFactor | null;
 }
 
 /* ----------------------------------------------------------- league/career */

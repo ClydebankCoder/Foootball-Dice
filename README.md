@@ -64,11 +64,19 @@ integer from 1 to 100 — not a float dressed up as a percentage. `resolveAction
 accepts an injected roll (`resolveAction(action, context, 50)`) so boundary
 behaviour is tested exactly rather than statistically.
 
-**Outcome bands** already exist beyond pass/fail — critical success, success,
-partial success, failure, critical failure. They are strictly *nested inside*
-the headline rule: a critical success is always a success, a partial success is
+**Outcome bands** go beyond pass/fail — critical success, success, partial
+success, failure, critical failure. They are strictly *nested inside* the
+headline rule: a critical success is always a success, a partial success is
 always a failure. The banding can be enriched without the rule the player was
 shown ever changing under them.
+
+**Criticals carry.** A critical success hands the next decision in the same
+passage of play a bonus ("Defence scrambling", +10%); a critical failure while
+defending costs you one ("Caught out of position", −8%). It applies to the
+following decision only, and it appears in that decision's breakdown by name
+like every other modifier — a bonus the player cannot see would defeat the
+point. Ordinary successes carry nothing, which is what keeps a critical
+feeling like an event.
 
 ## Layout
 
