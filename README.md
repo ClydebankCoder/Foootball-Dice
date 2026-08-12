@@ -113,11 +113,40 @@ last table stores the probability shown and the roll received for every
 decision, which is both the audit trail behind the game's promise and the
 foundation for manager records ("lowest probability ever converted").
 
+## Seasons, promotion and relegation
+
+All four SPFL divisions exist: Premiership (12), Championship, League One and
+League Two (10 each), 42 clubs in total. You can take any of them.
+
+A season is a double round robin — everyone home and away, so 22 matches in the
+Premiership and 18 below it. At the end of it:
+
+- the champion of each division below the top goes up
+- the bottom club of each division above the bottom goes down
+- League Two's bottom club stays (there is no pyramid beneath it here)
+
+The three divisions you are *not* in are simulated in full at the final whistle
+rather than tracked week by week — same ratings, same dice, same upsets, just
+resolved in one go. That is what makes a club coming up have somewhere to come
+from. Then the pyramid is rebuilt, your record is filed, and the next season's
+fixtures are generated.
+
+Play-offs are not implemented: it is one automatic promotion and one automatic
+relegation per division, not the real 2nd-to-4th play-off. `PROMOTION_PLACES`
+and `RELEGATION_PLACES` in `src/engine/season.ts` are the knobs.
+
 ## Data
 
-Four fictional Scottish clubs with different strengths, 18 generated players
-each. Squads are generated deterministically from the club id, so a club always
-fields the same team. Team ratings are derived from the players, not typed in.
+42 real SPFL clubs — names, home grounds and colours only. No crests, which are
+the part that is actually trademarked, and players stay fictional rather than
+bringing image rights into a prototype.
 
-Real clubs and players replace this by swapping `src/data/` — nothing
-downstream knows where a `Player[]` came from.
+Each club carries a `profile` (attack/midfield/defence/goalkeeping on the same
+1–100 scale as player attributes). An 18-player squad is generated
+deterministically from the club id, so a club always fields the same team, and
+team ratings are derived back out of that squad rather than typed in.
+
+Which division a club starts in changes every May. `src/data/clubs.ts` reflects
+2025-26 as I have it — correcting a placing is a one-word edit to that club's
+`league` field. The ratings are judgement calls for playability, not a ranking,
+and they are meant to be tuned.

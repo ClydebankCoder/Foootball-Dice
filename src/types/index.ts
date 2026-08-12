@@ -391,6 +391,45 @@ export interface ManagerRecords {
   actionsSuccessful: number;
 }
 
+/** How a club's season ended, once the final table was settled. */
+export type SeasonOutcome =
+  | 'champion'
+  | 'promoted'
+  | 'relegated'
+  | 'none';
+
+export interface SeasonRecord {
+  season: number;
+  league: LeagueId;
+  position: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  points: number;
+  outcome: SeasonOutcome;
+}
+
+/** One division's promotion/relegation result at the end of a season. */
+export interface DivisionResult {
+  league: LeagueId;
+  table: TableRow[];
+  promoted: string[];
+  relegated: string[];
+}
+
+export interface SeasonSummary {
+  season: number;
+  /** The division the manager competed in. */
+  league: LeagueId;
+  divisions: DivisionResult[];
+  managerRecord: SeasonRecord;
+  /** Where the manager's club will play next season. */
+  nextLeague: LeagueId;
+}
+
 export interface Career {
   version: number;
   managerName: string;
@@ -398,10 +437,19 @@ export interface Career {
   /** The how-it-works briefing is shown once, when the job is taken. */
   tutorialSeen: boolean;
   tactics: Tactics;
+  /** 1 for the first season, incrementing on each rollover. */
+  season: number;
+  /** Which clubs are in which division *this* season. Clubs move. */
+  divisions: Record<LeagueId, string[]>;
+  /** Fixtures for the manager's division this season only. */
   fixtures: Fixture[];
   records: ManagerRecords;
-  /** Result summaries for matches already played, newest last. */
+  /** Result summaries for recent matches, newest last. */
   history: MatchSummary[];
+  /** One row per completed season. */
+  seasons: SeasonRecord[];
+  /** Set when a season has ended and is waiting to be reviewed. */
+  pendingSeasonSummary: SeasonSummary | null;
 }
 
 export interface MatchSummary {

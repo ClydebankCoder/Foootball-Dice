@@ -22,9 +22,9 @@ const TACTICS: Tactics = {
 function newMatch(seed: number): MatchState {
   return createMatch({
     fixtureId: 'test-fixture',
-    homeClubId: 'greenock-rovers',
-    awayClubId: 'inverclyde-fc',
-    userClubId: 'greenock-rovers',
+    homeClubId: 'greenock-morton',
+    awayClubId: 'partick-thistle',
+    userClubId: 'greenock-morton',
     tactics: TACTICS,
     seed,
   });
@@ -301,10 +301,10 @@ describe('critical results carry into the next decision', () => {
 
 describe('the dice actually matter', () => {
   it('lets the underdog beat the favourite over a run of matches', () => {
-    // Clyde Valley have the worst defence in the division; Inverclyde the best.
+    // Morton are the weaker side on paper; Partick the stronger.
     let underdogWins = 0;
     for (let seed = 0; seed < 40; seed++) {
-      const state = playMatchFor(seed, 'clyde-valley-united', 'inverclyde-fc');
+      const state = playMatchFor(seed, 'greenock-morton', 'partick-thistle');
       if (state.homeScore > state.awayScore) underdogWins += 1;
     }
     expect(underdogWins).toBeGreaterThan(0);

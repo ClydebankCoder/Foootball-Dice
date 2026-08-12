@@ -6,6 +6,7 @@ import { MatchResult } from './pages/MatchResult';
 import { MatchScreen } from './pages/MatchScreen';
 import { SquadScreen } from './pages/SquadScreen';
 import { TacticsScreen } from './pages/TacticsScreen';
+import { SeasonSummary } from './pages/SeasonSummary';
 import { TutorialModal } from './components/TutorialModal';
 import { getClub } from './data/clubs';
 import { createMatch, summariseMatch } from './engine/matchEngine';
@@ -13,11 +14,13 @@ import {
   clearCareer,
   completeFixture,
   createCareer,
+  finishSeason,
   loadCareer,
   markTutorialSeen,
   nextFixture,
   saveCareer,
   setTactics,
+  startNextSeason,
 } from './state/career';
 import type { Career, MatchState, Tactics } from './types';
 
@@ -73,6 +76,17 @@ export default function App() {
     setFinished(state);
   }
 
+  function endSeason() {
+    if (!career) return;
+    setCareer(finishSeason(career));
+  }
+
+  function beginNextSeason() {
+    if (!career) return;
+    setCareer(startNextSeason(career));
+    setScreen('dashboard');
+  }
+
   function updateTactics(tactics: Tactics) {
     if (!career) return;
     setCareer(setTactics(career, tactics));
@@ -112,6 +126,19 @@ export default function App() {
     );
   }
 
+  // A settled season takes over until the manager has read it.
+  if (career.pendingSeasonSummary) {
+    return (
+      <Shell>
+        <SeasonSummary
+          summary={career.pendingSeasonSummary}
+          clubId={career.clubId}
+          onContinue={beginNextSeason}
+        />
+      </Shell>
+    );
+  }
+
   return (
     <Shell
       nav={
@@ -138,6 +165,7 @@ export default function App() {
         <Dashboard
           career={career}
           onPlayMatch={playMatch}
+          onFinishSeason={endSeason}
           onShowTutorial={() => setShowTutorial(true)}
         />
       )}

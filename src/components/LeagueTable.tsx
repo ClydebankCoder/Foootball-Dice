@@ -4,9 +4,18 @@ import type { TableRow } from '../types';
 interface Props {
   rows: TableRow[];
   highlightClubId?: string;
+  /** Club ids going up, marked with a green edge. */
+  promoted?: string[];
+  /** Club ids going down, marked with a red edge. */
+  relegated?: string[];
 }
 
-export function LeagueTable({ rows, highlightClubId }: Props) {
+export function LeagueTable({
+  rows,
+  highlightClubId,
+  promoted = [],
+  relegated = [],
+}: Props) {
   return (
     <div className="table-wrap">
       <table className="league-table">
@@ -19,8 +28,8 @@ export function LeagueTable({ rows, highlightClubId }: Props) {
             <th scope="col">W</th>
             <th scope="col">D</th>
             <th scope="col">L</th>
-            <th scope="col">GF</th>
-            <th scope="col">GA</th>
+            <th scope="col" className="league-table__wide">GF</th>
+            <th scope="col" className="league-table__wide">GA</th>
             <th scope="col">GD</th>
             <th scope="col">Pts</th>
           </tr>
@@ -28,10 +37,18 @@ export function LeagueTable({ rows, highlightClubId }: Props) {
         <tbody>
           {rows.map((row, index) => {
             const club = getClub(row.clubId);
+            const movement = promoted.includes(row.clubId)
+              ? 'is-promoted'
+              : relegated.includes(row.clubId)
+                ? 'is-relegated'
+                : '';
             return (
               <tr
                 key={row.clubId}
-                className={row.clubId === highlightClubId ? 'is-you' : undefined}
+                className={
+                  `${row.clubId === highlightClubId ? 'is-you' : ''} ${movement}`.trim() ||
+                  undefined
+                }
               >
                 <td className="league-table__pos">{index + 1}</td>
                 <th scope="row">
@@ -45,8 +62,8 @@ export function LeagueTable({ rows, highlightClubId }: Props) {
                 <td>{row.won}</td>
                 <td>{row.drawn}</td>
                 <td>{row.lost}</td>
-                <td>{row.goalsFor}</td>
-                <td>{row.goalsAgainst}</td>
+                <td className="league-table__wide">{row.goalsFor}</td>
+                <td className="league-table__wide">{row.goalsAgainst}</td>
                 <td>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td>
                 <td className="league-table__pts">{row.points}</td>
               </tr>

@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { LEAGUE_NAMES } from '../data/clubs';
-import { getAllClubsWithSquads } from '../data/world';
+import { CLUBS } from '../data/clubs';
+import { LEAGUES } from '../data/leagues';
+import { getClubWithSquad } from '../data/world';
 
 interface Props {
   onStart: (managerName: string, clubId: string) => void;
 }
 
 export function ClubSelect({ onStart }: Props) {
-  const clubs = getAllClubsWithSquads();
   const [managerName, setManagerName] = useState('');
-  const [clubId, setClubId] = useState(clubs[0].id);
+  const [clubId, setClubId] = useState('greenock-morton');
 
   return (
     <div className="stack">
@@ -48,45 +48,52 @@ export function ClubSelect({ onStart }: Props) {
             autoComplete="name"
           />
           <p className="field__hint">
-            No account needed — your career is saved on this device. Sign-in arrives with
-            Supabase later.
+            No account needed — your career is saved on this device.
           </p>
         </div>
 
         <fieldset className="field">
           <legend className="field__label">Choose your club</legend>
-          <div className="club-grid">
-            {clubs.map((club) => {
-              const selected = club.id === clubId;
-              return (
-                <label
-                  key={club.id}
-                  className={`club-card ${selected ? 'is-selected' : ''}`}
-                  style={{ borderLeftColor: club.primaryColour }}
-                >
-                  <input
-                    type="radio"
-                    name="club"
-                    value={club.id}
-                    checked={selected}
-                    onChange={() => setClubId(club.id)}
-                    className="visually-hidden"
-                  />
-                  <span className="club-card__head">
-                    <span className="club-card__name">{club.name}</span>
-                    <span className="club-card__league">{LEAGUE_NAMES[club.league]}</span>
-                  </span>
-                  <span className="club-card__stadium">{club.stadium}</span>
-                  <span className="club-card__ratings">
-                    <Rating label="ATT" value={club.ratings.attack} />
-                    <Rating label="MID" value={club.ratings.midfield} />
-                    <Rating label="DEF" value={club.ratings.defence} />
-                    <Rating label="GK" value={club.ratings.goalkeeper} />
-                  </span>
-                </label>
-              );
-            })}
-          </div>
+          <p className="field__hint field__hint--top">
+            All 42 SPFL clubs. Start at the bottom and work up, or take a big job and try
+            to keep it.
+          </p>
+
+          {LEAGUES.map((league) => (
+            <div className="division" key={league.id}>
+              <h2 className="division__name">{league.name}</h2>
+              <div className="club-grid">
+                {CLUBS.filter((club) => club.league === league.id).map((club) => {
+                  const squad = getClubWithSquad(club.id);
+                  const selected = club.id === clubId;
+                  return (
+                    <label
+                      key={club.id}
+                      className={`club-card ${selected ? 'is-selected' : ''}`}
+                      style={{ borderLeftColor: club.primaryColour }}
+                    >
+                      <input
+                        type="radio"
+                        name="club"
+                        value={club.id}
+                        checked={selected}
+                        onChange={() => setClubId(club.id)}
+                        className="visually-hidden"
+                      />
+                      <span className="club-card__name">{club.name}</span>
+                      <span className="club-card__stadium">{club.stadium}</span>
+                      <span className="club-card__ratings">
+                        <Rating label="ATT" value={squad.ratings.attack} />
+                        <Rating label="MID" value={squad.ratings.midfield} />
+                        <Rating label="DEF" value={squad.ratings.defence} />
+                        <Rating label="GK" value={squad.ratings.goalkeeper} />
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </fieldset>
 
         <button type="submit" className="btn btn--primary btn--block">

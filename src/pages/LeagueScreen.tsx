@@ -1,6 +1,7 @@
 import { LeagueTable } from '../components/LeagueTable';
-import { getClub, LEAGUE_NAMES } from '../data/clubs';
-import { tableFor } from '../state/career';
+import { getClub } from '../data/clubs';
+import { LEAGUES } from '../data/leagues';
+import { currentLeague, tableFor } from '../state/career';
 import type { Career, Fixture } from '../types';
 
 interface Props {
@@ -9,25 +10,47 @@ interface Props {
 
 export function LeagueScreen({ career }: Props) {
   const table = tableFor(career);
-  const club = getClub(career.clubId);
+  const league = currentLeague(career);
   // Most recent first — the last result is the one you want to see.
   const results = career.fixtures.filter((f) => f.played).reverse();
-  const upcoming = career.fixtures.filter((f) => !f.played);
+  const upcoming = career.fixtures.filter(
+    (f) =>
+      !f.played && (f.homeClubId === career.clubId || f.awayClubId === career.clubId),
+  );
 
   return (
     <div className="stack">
       <section className="card">
-        <h1 className="card__title">{LEAGUE_NAMES[club.league]}</h1>
+        <h1 className="card__title">
+          {LEAGUES.find((l) => l.id === league)!.name} · Season {career.season}
+        </h1>
         <LeagueTable rows={table} highlightClubId={career.clubId} />
+        <p className="muted small">
+          One club goes up and one goes down between each division at the end of the
+          season.
+        </p>
       </section>
 
       <section className="card">
-        <h2 className="card__title">Results</h2>
+        <h2 className="card__title">Your remaining fixtures</h2>
+        {upcoming.length === 0 ? (
+          <p className="muted">That's your season done.</p>
+        ) : (
+          <ul className="fixtures">
+            {upcoming.slice(0, 8).map((fixture) => (
+              <FixtureRow key={fixture.id} fixture={fixture} clubId={career.clubId} />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="card">
+        <h2 className="card__title">Latest results</h2>
         {results.length === 0 ? (
           <p className="muted">Nothing played yet.</p>
         ) : (
           <ul className="fixtures">
-            {results.map((fixture) => (
+            {results.slice(0, 12).map((fixture) => (
               <FixtureRow key={fixture.id} fixture={fixture} clubId={career.clubId} />
             ))}
           </ul>
@@ -35,16 +58,27 @@ export function LeagueScreen({ career }: Props) {
       </section>
 
       <section className="card">
-        <h2 className="card__title">Still to play</h2>
-        {upcoming.length === 0 ? (
-          <p className="muted">That's the season done.</p>
-        ) : (
-          <ul className="fixtures">
-            {upcoming.map((fixture) => (
-              <FixtureRow key={fixture.id} fixture={fixture} clubId={career.clubId} />
-            ))}
-          </ul>
-        )}
+        <h2 className="card__title">The pyramid</h2>
+        <p className="muted small">
+          Where every club sits this season. The divisions you are not in are played out
+          at the final whistle of the season.
+        </p>
+        {LEAGUES.map((definition) => (
+          <div className="pyramid" key={definition.id}>
+            <h3 className="pyramid__name">{definition.name}</h3>
+            <p className="pyramid__clubs">
+              {(career.divisions[definition.id] ?? []).map((clubId, index) => (
+                <span
+                  key={clubId}
+                  className={`pyramid__club ${clubId === career.clubId ? 'is-you' : ''}`}
+                >
+                  {index > 0 && ' · '}
+                  {getClub(clubId).shortName}
+                </span>
+              ))}
+            </p>
+          </div>
+        ))}
       </section>
     </div>
   );

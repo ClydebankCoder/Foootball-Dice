@@ -18,7 +18,7 @@ const TACTICS: Tactics = {
 function contextFor(actor: Player, situation: SituationId): ActionContext {
   return {
     actor,
-    opposition: getClubWithSquad('inverclyde-fc').ratings,
+    opposition: getClubWithSquad('partick-thistle').ratings,
     tactics: TACTICS,
     situation: getSituation(situation),
     isHome: true,
@@ -26,8 +26,8 @@ function contextFor(actor: Player, situation: SituationId): ActionContext {
   };
 }
 
-const rovers = getClubWithSquad('greenock-rovers');
-const midfielder = rovers.players.find((p) => p.position === 'MID')!;
+const morton = getClubWithSquad('greenock-morton');
+const midfielder = morton.players.find((p) => p.position === 'MID')!;
 
 describe('the breakdown', () => {
   it('adds up exactly to the raw total shown to the player', () => {

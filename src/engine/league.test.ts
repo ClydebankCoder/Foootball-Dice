@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { computeTable, generateFixtures, ordinal, positionOf, simulateFixture } from './league';
-import { CLUBS } from '../data/clubs';
+import { startingDivisions } from '../data/clubs';
 import { createSeededRng } from './random';
 import type { Fixture } from '../types';
 
-const clubIds = CLUBS.map((c) => c.id);
+// One real division, rather than all 42 clubs in a single imaginary league.
+const clubIds = startingDivisions()['league-two'];
 
 describe('the fixture list', () => {
   it('has every club playing every other home and away', () => {

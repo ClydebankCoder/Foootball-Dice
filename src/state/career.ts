@@ -1,12 +1,14 @@
 /**
- * The manager's career: club, tactics, fixtures, results and records.
+ * The manager's career: club, tactics, the division they are in, fixtures,
+ * results, records and every season they have completed.
  *
  * Persisted to localStorage so a refresh never costs progress. The shape
  * mirrors the planned Supabase tables, so moving to accounts later means
  * changing where this is read from and written to, not what it contains.
  */
 
-import { CLUBS } from '../data/clubs';
+import { getClub, startingDivisions } from '../data/clubs';
+import { LEAGUE_ORDER } from '../data/leagues';
 import {
   computeTable,
   embellishScoreline,
@@ -14,10 +16,32 @@ import {
   simulateFixture,
 } from '../engine/league';
 import { createRng } from '../engine/random';
-import type { Career, Fixture, MatchSummary, Tactics, TableRow } from '../types';
+import {
+  buildSeasonTables,
+  leagueOf,
+  outcomeFor,
+  resolvePromotionAndRelegation,
+} from '../engine/season';
+import type {
+  Career,
+  Fixture,
+  LeagueId,
+  MatchSummary,
+  SeasonRecord,
+  SeasonSummary,
+  TableRow,
+  Tactics,
+} from '../types';
 
-export const CAREER_VERSION = 1;
+/**
+ * Bumped to 2 when real clubs, divisions and seasons arrived. A version 1
+ * save has no division table and cannot be migrated meaningfully, so it is
+ * discarded rather than half-loaded.
+ */
+export const CAREER_VERSION = 2;
 const STORAGE_KEY = 'football-dice:career';
+/** Matches kept in the save. Enough for form; not enough to bloat storage. */
+const HISTORY_LIMIT = 40;
 
 export const DEFAULT_TACTICS: Tactics = {
   mentality: 'balanced',
@@ -26,18 +50,19 @@ export const DEFAULT_TACTICS: Tactics = {
   pressing: 'medium',
 };
 
-export function leagueClubIds(): string[] {
-  return CLUBS.map((club) => club.id);
-}
-
 export function createCareer(managerName: string, clubId: string): Career {
+  const divisions = startingDivisions();
+  const league = getClub(clubId).league;
+
   return {
     version: CAREER_VERSION,
     managerName: managerName.trim() || 'The Gaffer',
     clubId,
     tutorialSeen: false,
     tactics: { ...DEFAULT_TACTICS },
-    fixtures: generateFixtures(leagueClubIds()),
+    season: 1,
+    divisions,
+    fixtures: generateFixtures(divisions[league]),
     records: {
       lowestSuccessfulProbability: null,
       lowestSuccessfulActionName: null,
@@ -45,11 +70,22 @@ export function createCareer(managerName: string, clubId: string): Career {
       actionsSuccessful: 0,
     },
     history: [],
+    seasons: [],
+    pendingSeasonSummary: null,
   };
 }
 
+/** The division the manager is in this season. */
+export function currentLeague(career: Career): LeagueId {
+  return leagueOf(career.clubId, career.divisions);
+}
+
+export function currentDivisionClubs(career: Career): string[] {
+  return career.divisions[currentLeague(career)] ?? [];
+}
+
 export function tableFor(career: Career): TableRow[] {
-  return computeTable(leagueClubIds(), career.fixtures);
+  return computeTable(currentDivisionClubs(career), career.fixtures);
 }
 
 /** The manager's next unplayed fixture, or null when the season is done. */
@@ -61,6 +97,10 @@ export function nextFixture(career: Career): Fixture | null {
         (fixture.homeClubId === career.clubId || fixture.awayClubId === career.clubId),
     ) ?? null
   );
+}
+
+export function seasonComplete(career: Career): boolean {
+  return nextFixture(career) === null;
 }
 
 /**
@@ -110,7 +150,70 @@ export function completeFixture(career: Career, summary: MatchSummary): Career {
     ...career,
     fixtures,
     records,
-    history: [...career.history, summary],
+    history: [...career.history, summary].slice(-HISTORY_LIMIT),
+  };
+}
+
+/* ------------------------------------------------------------- season end */
+
+/**
+ * Closes the season: settles every division, works out who went up and down,
+ * and files the manager's own record.
+ *
+ * The new division lists are stored, but the next season's fixtures are not
+ * generated until the summary has been reviewed — so the manager sees where
+ * they finished before being handed a new calendar.
+ */
+export function finishSeason(career: Career): Career {
+  const rng = createRng();
+  const league = currentLeague(career);
+  const tables = buildSeasonTables(career.divisions, league, career.fixtures, rng);
+  const { divisions, results } = resolvePromotionAndRelegation(career.divisions, tables);
+
+  const table = tables[league];
+  const position = table.findIndex((row) => row.clubId === career.clubId) + 1;
+  const row = table.find((r) => r.clubId === career.clubId);
+  const outcome = outcomeFor(career.clubId, league, results);
+
+  const managerRecord: SeasonRecord = {
+    season: career.season,
+    league,
+    position,
+    played: row?.played ?? 0,
+    won: row?.won ?? 0,
+    drawn: row?.drawn ?? 0,
+    lost: row?.lost ?? 0,
+    goalsFor: row?.goalsFor ?? 0,
+    goalsAgainst: row?.goalsAgainst ?? 0,
+    points: row?.points ?? 0,
+    outcome,
+  };
+
+  const summary: SeasonSummary = {
+    season: career.season,
+    league,
+    divisions: results,
+    managerRecord,
+    nextLeague: leagueOf(career.clubId, divisions),
+  };
+
+  return {
+    ...career,
+    divisions,
+    seasons: [...career.seasons, managerRecord],
+    pendingSeasonSummary: summary,
+  };
+}
+
+/** Starts the next season once the summary has been read. */
+export function startNextSeason(career: Career): Career {
+  const league = currentLeague(career);
+  return {
+    ...career,
+    season: career.season + 1,
+    fixtures: generateFixtures(career.divisions[league]),
+    history: [],
+    pendingSeasonSummary: null,
   };
 }
 
@@ -132,19 +235,28 @@ export function saveCareer(career: Career): void {
   }
 }
 
+/** Rejects anything we cannot trust to be a complete, current career. */
+function looksValid(parsed: Partial<Career>): parsed is Career {
+  if (parsed?.version !== CAREER_VERSION) return false;
+  if (!parsed.clubId || !Array.isArray(parsed.fixtures)) return false;
+  if (!parsed.divisions) return false;
+  // Every division must exist and the club must be in one of them.
+  const inADivision = LEAGUE_ORDER.some((league) =>
+    (parsed.divisions?.[league] ?? []).includes(parsed.clubId as string),
+  );
+  return inADivision;
+}
+
 export function loadCareer(): Career | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<Career>;
-    if (parsed?.version !== CAREER_VERSION) return null;
-    if (!parsed.clubId || !Array.isArray(parsed.fixtures)) return null;
-    // Guard against a club that no longer exists in the data set.
-    if (!leagueClubIds().includes(parsed.clubId)) return null;
+    if (!looksValid(parsed)) return null;
     return {
       ...createCareer(parsed.managerName ?? 'The Gaffer', parsed.clubId),
       ...parsed,
-    } as Career;
+    };
   } catch {
     return null;
   }
