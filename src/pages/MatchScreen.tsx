@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react';
 import { ActionList } from '../components/ActionList';
 import { DiceRoll } from '../components/DiceRoll';
 import { MatchTimeline } from '../components/MatchTimeline';
+import { PenaltyShootout } from '../components/PenaltyShootout';
 import { ProbabilityBar } from '../components/ProbabilityBar';
 import { ProbabilityFactors } from '../components/ProbabilityFactors';
 import { Scoreboard } from '../components/Scoreboard';
@@ -88,6 +89,63 @@ export function MatchScreen({ initialState, onFinish }: Props) {
     setSelected(null);
     setStage('choosing');
     setState(advanceMatch(base));
+  }
+
+  if (state.phase === 'extra-time') {
+    return (
+      <div className="match">
+        <Scoreboard state={state} />
+        <section className="card card--centred">
+          <p className="eyebrow">Level at ninety</p>
+          <h1 className="card__title">Extra time</h1>
+          <p className="muted">
+            Thirty more minutes. This tie has to produce a winner — and if it still
+            hasn't after 120, it goes to penalties.
+          </p>
+          <button
+            type="button"
+            className="btn btn--primary btn--block"
+            onClick={() => setState(advanceMatch(state))}
+            autoFocus
+          >
+            Play extra time
+          </button>
+        </section>
+        <section className="card">
+          <h2 className="card__title">Commentary</h2>
+          <MatchTimeline log={state.log} limit={8} />
+        </section>
+      </div>
+    );
+  }
+
+  if (state.phase === 'shootout' && state.shootout) {
+    const shootout = state.shootout;
+    return (
+      <div className="match">
+        <Scoreboard state={state} />
+        <PenaltyShootout
+          shootout={shootout}
+          onUpdate={(next) => setState({ ...state, shootout: next })}
+        />
+        {shootout.complete && (
+          <section className="card card--centred">
+            <p className="eyebrow">Settled on penalties</p>
+            <h2 className="card__title">
+              {getClub(shootout.winnerClubId!).name} go through
+            </h2>
+            <button
+              type="button"
+              className="btn btn--primary btn--block"
+              onClick={() => onFinish({ ...state, phase: 'full-time', shootout })}
+              autoFocus
+            >
+              See the match report
+            </button>
+          </section>
+        )}
+      </div>
+    );
   }
 
   if (state.phase === 'full-time') {

@@ -303,6 +303,10 @@ export type MatchPhase =
   | 'kick-off'
   | 'decision'
   | 'resolved'
+  /** Level after ninety in a tie that needs a winner. */
+  | 'extra-time'
+  /** Level after extra time. */
+  | 'shootout'
   | 'full-time';
 
 export interface GoalRecord {
@@ -335,6 +339,15 @@ export interface MatchState {
   currentEvent: MatchEvent | null;
   /** Resolution awaiting acknowledgement while phase is 'resolved'. */
   lastResolution: Resolution | null;
+  /**
+   * Cup ties cannot end level: at ninety they go to extra time, and at 120 to
+   * penalties. League fixtures simply end.
+   */
+  mustHaveWinner: boolean;
+  /** 90 normally, 120 once extra time has started. */
+  endMinute: number;
+  /** Set when a tie has gone all the way to penalties. */
+  shootout: ShootoutState | null;
   /** How many random draws have been consumed, so the match stays replayable. */
   rngCursor: number;
   /** Minutes at which the manager is asked to decide. */
@@ -391,6 +404,86 @@ export interface ManagerRecords {
   actionsSuccessful: number;
 }
 
+/* -------------------------------------------------------------- cup */
+
+/** Which competition a career is playing. */
+export type CompetitionMode = 'league' | 'scottish-cup';
+
+export interface CupTie {
+  id: string;
+  round: number;
+  homeClubId: string;
+  awayClubId: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  /** Penalty scores, when the tie could not be settled in 120 minutes. */
+  shootout: { home: number; away: number } | null;
+  /** Set once the tie is settled. */
+  winnerClubId: string | null;
+  played: boolean;
+}
+
+export interface CupState {
+  season: number;
+  /** Index into CUP_ROUNDS. */
+  round: number;
+  /** Every tie drawn so far, across every round. */
+  ties: CupTie[];
+  /** Clubs still in the hat for the current round. */
+  remaining: string[];
+  /** Set when the cup has been won. */
+  winnerClubId: string | null;
+  /** The round in which the manager's club went out, if it has. */
+  eliminatedInRound: number | null;
+}
+
+/* ----------------------------------------------------------- shootout */
+
+export type ShootoutRole = 'taking' | 'saving';
+export type PenaltyDirection = 'left' | 'centre' | 'right';
+
+export interface ShootoutKick {
+  /** The club taking the kick. */
+  clubId: string;
+  /** Always the taker, never the goalkeeper. */
+  playerName: string;
+  /** Whether the manager was taking this kick or trying to keep it out. */
+  role: ShootoutRole;
+  /** The manager's chosen action — a finish, or a dive. */
+  actionName: string;
+  probability: number;
+  roll: number;
+  scored: boolean;
+  commentary: string;
+  /** True when the manager chose this kick rather than it being simulated. */
+  userDecision: boolean;
+}
+
+export interface ShootoutState {
+  homeClubId: string;
+  awayClubId: string;
+  userClubId: string;
+  homeScore: number;
+  awayScore: number;
+  kicks: ShootoutKick[];
+  /** Club taking the next kick. */
+  turnClubId: string;
+  /** 1-5, then sudden death. */
+  kickNumber: number;
+  suddenDeath: boolean;
+  complete: boolean;
+  winnerClubId: string | null;
+  /**
+   * The visible read on the next opposition penalty. Shown to the manager
+   * before they choose how to dive, so the decision is informed rather than
+   * a coin flip they cannot see into — and the numbers on the diving options
+   * already account for it being a bluff.
+   */
+  tell: { direction: PenaltyDirection; text: string } | null;
+  seed: number;
+  rngCursor: number;
+}
+
 /** How a club's season ended, once the final table was settled. */
 export type SeasonOutcome =
   | 'champion'
@@ -420,6 +513,15 @@ export interface DivisionResult {
   relegated: string[];
 }
 
+/** One completed cup run. */
+export interface CupSeasonRecord {
+  season: number;
+  /** The round the manager's club went out in, or the final if they won it. */
+  roundReached: number;
+  won: boolean;
+  runnerUp: boolean;
+}
+
 export interface SeasonSummary {
   season: number;
   /** The division the manager competed in. */
@@ -434,6 +536,8 @@ export interface Career {
   version: number;
   managerName: string;
   clubId: string;
+  /** League season or Scottish Cup. Chosen when the job is taken. */
+  competition: CompetitionMode;
   /** The how-it-works briefing is shown once, when the job is taken. */
   tutorialSeen: boolean;
   tactics: Tactics;
@@ -446,10 +550,14 @@ export interface Career {
   records: ManagerRecords;
   /** Result summaries for recent matches, newest last. */
   history: MatchSummary[];
-  /** One row per completed season. */
+  /** One row per completed season. League mode only. */
   seasons: SeasonRecord[];
   /** Set when a season has ended and is waiting to be reviewed. */
   pendingSeasonSummary: SeasonSummary | null;
+  /** The cup run in progress. Cup mode only. */
+  cup: CupState | null;
+  /** One row per completed cup run. */
+  cupSeasons: CupSeasonRecord[];
 }
 
 export interface MatchSummary {

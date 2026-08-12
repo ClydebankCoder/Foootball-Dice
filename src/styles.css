@@ -659,6 +659,171 @@ button {
   padding: 0.1rem 0.3rem;
 }
 
+/* --------------------------------------------------------------- shootout */
+
+.shootout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.shootout__board {
+  text-align: center;
+}
+
+.shootout__score {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  margin-bottom: 0.9rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+
+.shootout__score strong {
+  font-size: clamp(2rem, 9vw, 2.8rem);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.kick-track {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.25rem 0;
+  text-align: left;
+}
+
+.kick-track__label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kick-track__dots {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.kick-track__dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+}
+
+.kick-track__dot.is-scored {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.kick-track__dot.is-missed {
+  background: transparent;
+  border-color: var(--failure);
+}
+
+.kick-track__dot.is-pending {
+  background: transparent;
+  border-style: dashed;
+}
+
+.shootout__sudden {
+  margin-top: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: var(--extreme);
+  font-size: 0.8rem;
+}
+
+.shootout__tell {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  margin: 0.75rem 0 0.25rem;
+  padding: 0.65rem 0.8rem;
+  background: rgba(242, 193, 78, 0.12);
+  box-shadow: inset 2px 0 0 var(--balanced);
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  color: #f6e2b0;
+}
+
+.kick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.kick {
+  display: grid;
+  grid-template-columns: 1.2rem 2.6rem 1fr;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+}
+
+.kick__mark.is-scored { color: var(--success); }
+.kick__mark.is-missed { color: var(--failure); }
+
+.kick__club {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.72rem;
+}
+
+.kick__player {
+  font-weight: 600;
+}
+
+.kick__odds {
+  grid-column: 3;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* -------------------------------------------------------------------- cup */
+
+.round-badge {
+  margin-left: 0.5rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.fixture-row__score--cup {
+  min-width: 3.2rem;
+}
+
+.fixture-row__pens {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.cup-note {
+  margin-top: 0.4rem;
+  font-style: italic;
+}
+
 /* ------------------------------------------------------------------ modal */
 
 .modal-backdrop {

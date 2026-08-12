@@ -113,6 +113,41 @@ last table stores the probability shown and the roll received for every
 decision, which is both the audit trail behind the game's promise and the
 foundation for manager records ("lowest probability ever converted").
 
+## Competitions
+
+You pick one when you take the job.
+
+**Scottish Cup** (the short one, and the default). Staggered entry like the real
+thing: League One and League Two play a preliminary round, and the ten
+survivors join the Premiership and Championship for a Round of 32. So 42 clubs
+becomes 32, 16, 8, 4, 2 — five ties to win it from the Round of 32, six from
+the preliminary round. Taking a lower-league job buys you a longer road, which
+is the reason to take one.
+
+The draw is open and unseeded, so a League Two club can get Celtic away in the
+first round they play. That is not a flaw in the format; it is the reason to
+build a cup for a game about improbable things happening.
+
+**League season** (the long one). A full division, home and away, promotion and
+relegation — see below.
+
+## Penalties
+
+A cup tie cannot end level: 90 minutes, then extra time with three more
+decisions in it, then penalties.
+
+The shootout is the densest run of the core mechanic in the game — a dozen
+locked-in probabilities and D100 rolls with a cup on the end. Taking one, you
+pick from Side-Foot, Power, Down The Middle, Stutter Run-Up, Top Corner or
+Panenka, each with its own number against that goalkeeper.
+
+Facing one is informed rather than a coin flip. Your keeper gets a read on the
+taker — *"they keep checking the right-hand post"* — and the diving options
+price it in: going with the read is worth roughly double, and the fact a read
+can be a bluff is already inside that number rather than hidden behind it. Dive
+Left / Stand Tall / Dive Right keep their left-to-right order because they
+describe a goalmouth; every other menu in the game sorts best-first.
+
 ## Seasons, promotion and relegation
 
 All four SPFL divisions exist: Premiership (12), Championship, League One and

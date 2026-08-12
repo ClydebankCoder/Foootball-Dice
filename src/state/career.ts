@@ -8,7 +8,16 @@
  */
 
 import { getClub, startingDivisions } from '../data/clubs';
+import { FINAL_ROUND } from '../data/cup';
 import { LEAGUE_ORDER } from '../data/leagues';
+import {
+  advanceRound,
+  createCup,
+  cupOver,
+  recordTieResult,
+  simulateRestOfRound,
+  tieFor,
+} from '../engine/cup';
 import {
   computeTable,
   embellishScoreline,
@@ -24,8 +33,12 @@ import {
 } from '../engine/season';
 import type {
   Career,
+  CompetitionMode,
+  CupSeasonRecord,
+  CupTie,
   Fixture,
   LeagueId,
+  ManagerRecords,
   MatchSummary,
   SeasonRecord,
   SeasonSummary,
@@ -34,11 +47,11 @@ import type {
 } from '../types';
 
 /**
- * Bumped to 2 when real clubs, divisions and seasons arrived. A version 1
- * save has no division table and cannot be migrated meaningfully, so it is
- * discarded rather than half-loaded.
+ * Bumped to 3 when the Scottish Cup arrived alongside the league. Earlier
+ * saves lack a competition and a division table and cannot be migrated
+ * meaningfully, so they are discarded rather than half-loaded.
  */
-export const CAREER_VERSION = 2;
+export const CAREER_VERSION = 3;
 const STORAGE_KEY = 'football-dice:career';
 /** Matches kept in the save. Enough for form; not enough to bloat storage. */
 const HISTORY_LIMIT = 40;
@@ -50,19 +63,25 @@ export const DEFAULT_TACTICS: Tactics = {
   pressing: 'medium',
 };
 
-export function createCareer(managerName: string, clubId: string): Career {
+export function createCareer(
+  managerName: string,
+  clubId: string,
+  competition: CompetitionMode = 'league',
+): Career {
   const divisions = startingDivisions();
   const league = getClub(clubId).league;
+  const rng = createRng();
 
-  return {
+  const career: Career = {
     version: CAREER_VERSION,
     managerName: managerName.trim() || 'The Gaffer',
     clubId,
+    competition,
     tutorialSeen: false,
     tactics: { ...DEFAULT_TACTICS },
     season: 1,
     divisions,
-    fixtures: generateFixtures(divisions[league]),
+    fixtures: competition === 'league' ? generateFixtures(divisions[league]) : [],
     records: {
       lowestSuccessfulProbability: null,
       lowestSuccessfulActionName: null,
@@ -72,7 +91,13 @@ export function createCareer(managerName: string, clubId: string): Career {
     history: [],
     seasons: [],
     pendingSeasonSummary: null,
+    cup: competition === 'scottish-cup' ? createCup(1, divisions, rng) : null,
+    cupSeasons: [],
   };
+
+  // A top-flight club is not in the preliminary round, so walk the cup on
+  // until they actually have a tie to play.
+  return competition === 'scottish-cup' ? advanceCupToUserTie(career) : career;
 }
 
 /** The division the manager is in this season. */
@@ -104,6 +129,30 @@ export function seasonComplete(career: Career): boolean {
 }
 
 /**
+ * Folds a match's decisions into the manager's lifetime records, including the
+ * longest odds they have ever beaten.
+ */
+function applyDecisionRecords(
+  current: ManagerRecords,
+  summary: MatchSummary,
+): ManagerRecords {
+  const records = { ...current };
+  for (const decision of summary.decisions) {
+    records.actionsAttempted += 1;
+    if (!decision.success) continue;
+    records.actionsSuccessful += 1;
+    if (
+      records.lowestSuccessfulProbability === null ||
+      decision.probability < records.lowestSuccessfulProbability
+    ) {
+      records.lowestSuccessfulProbability = decision.probability;
+      records.lowestSuccessfulActionName = decision.actionName;
+    }
+  }
+  return records;
+}
+
+/**
  * Records the manager's result and simulates the rest of that round, so the
  * table always moves on with them.
  */
@@ -132,26 +181,130 @@ export function completeFixture(career: Career, summary: MatchSummary): Career {
     return fixture;
   });
 
-  const records = { ...career.records };
-  for (const decision of summary.decisions) {
-    records.actionsAttempted += 1;
-    if (!decision.success) continue;
-    records.actionsSuccessful += 1;
-    if (
-      records.lowestSuccessfulProbability === null ||
-      decision.probability < records.lowestSuccessfulProbability
-    ) {
-      records.lowestSuccessfulProbability = decision.probability;
-      records.lowestSuccessfulActionName = decision.actionName;
-    }
-  }
-
   return {
     ...career,
     fixtures,
+    records: applyDecisionRecords(career.records, summary),
+    history: [...career.history, summary].slice(-HISTORY_LIMIT),
+  };
+}
+
+/* -------------------------------------------------------------- cup mode */
+
+/** The manager's tie in the current cup round, if they have one. */
+export function cupTie(career: Career): CupTie | null {
+  if (!career.cup) return null;
+  return tieFor(career.cup, career.clubId);
+}
+
+export function cupIsOver(career: Career): boolean {
+  return career.cup !== null && cupOver(career.cup);
+}
+
+/**
+ * Walks the cup forward until the manager has a tie in front of them.
+ *
+ * Rounds they are not involved in — because they have not entered yet — are
+ * played out around them, so the bracket they eventually join is real.
+ */
+export function advanceCupToUserTie(career: Career): Career {
+  if (!career.cup || cupOver(career.cup)) return career;
+
+  const rng = createRng();
+  let cup = career.cup;
+
+  for (let guard = 0; guard <= FINAL_ROUND + 1; guard++) {
+    if (tieFor(cup, career.clubId)) break;
+
+    // Not in this round: settle it and move on.
+    cup = simulateRestOfRound(cup, rng);
+    if (cup.round >= FINAL_ROUND) {
+      cup = advanceRound(cup, career.divisions, rng);
+      break;
+    }
+    cup = advanceRound(cup, career.divisions, rng);
+  }
+
+  return { ...career, cup };
+}
+
+export interface CupTieResult {
+  tieId: string;
+  homeScore: number;
+  awayScore: number;
+  shootout: { home: number; away: number } | null;
+  winnerClubId: string;
+}
+
+/**
+ * Records the manager's cup tie, plays out the rest of the round, and either
+ * moves the cup on or ends their run.
+ */
+export function completeCupTie(
+  career: Career,
+  result: CupTieResult,
+  summary: MatchSummary,
+): Career {
+  if (!career.cup) return career;
+  const rng = createRng();
+
+  let cup = recordTieResult(career.cup, result.tieId, {
+    homeScore: result.homeScore,
+    awayScore: result.awayScore,
+    shootout: result.shootout,
+    winnerClubId: result.winnerClubId,
+  });
+  cup = simulateRestOfRound(cup, rng);
+
+  const knockedOut = result.winnerClubId !== career.clubId;
+  if (knockedOut) {
+    cup = { ...cup, eliminatedInRound: cup.round };
+  } else if (cup.round >= FINAL_ROUND) {
+    cup = { ...cup, winnerClubId: career.clubId };
+  }
+
+  const records = applyDecisionRecords(career.records, summary);
+  let next: Career = {
+    ...career,
+    cup,
     records,
     history: [...career.history, summary].slice(-HISTORY_LIMIT),
   };
+
+  // Still in it: draw the next round and find their next tie.
+  if (!knockedOut && cup.round < FINAL_ROUND) {
+    next = { ...next, cup: advanceRound(cup, career.divisions, rng) };
+    next = advanceCupToUserTie(next);
+  }
+
+  return next;
+}
+
+/** Files the cup run and draws a fresh cup for the next season. */
+export function startNextCupSeason(career: Career): Career {
+  if (!career.cup) return career;
+  const rng = createRng();
+  const won = career.cup.winnerClubId === career.clubId;
+  const roundReached = won
+    ? FINAL_ROUND
+    : (career.cup.eliminatedInRound ?? career.cup.round);
+
+  const record: CupSeasonRecord = {
+    season: career.season,
+    roundReached,
+    won,
+    runnerUp: !won && roundReached === FINAL_ROUND,
+  };
+
+  const season = career.season + 1;
+  const fresh: Career = {
+    ...career,
+    season,
+    cup: createCup(season, career.divisions, rng),
+    cupSeasons: [...career.cupSeasons, record],
+    history: [],
+  };
+  return advanceCupToUserTie(fresh);
 }
 
 /* ------------------------------------------------------------- season end */

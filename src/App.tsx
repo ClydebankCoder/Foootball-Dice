@@ -10,19 +10,23 @@ import { SeasonSummary } from './pages/SeasonSummary';
 import { TutorialModal } from './components/TutorialModal';
 import { getClub } from './data/clubs';
 import { createMatch, summariseMatch } from './engine/matchEngine';
+import { CupScreen } from './pages/CupScreen';
 import {
   clearCareer,
+  completeCupTie,
   completeFixture,
   createCareer,
+  cupTie,
   finishSeason,
   loadCareer,
   markTutorialSeen,
   nextFixture,
   saveCareer,
   setTactics,
+  startNextCupSeason,
   startNextSeason,
 } from './state/career';
-import type { Career, MatchState, Tactics } from './types';
+import type { Career, CompetitionMode, MatchState, Tactics } from './types';
 
 type Screen = 'dashboard' | 'squad' | 'tactics' | 'league';
 
@@ -42,8 +46,8 @@ export default function App() {
     if (career) saveCareer(career);
   }, [career]);
 
-  function start(managerName: string, clubId: string) {
-    setCareer(createCareer(managerName, clubId));
+  function start(managerName: string, clubId: string, competition: CompetitionMode) {
+    setCareer(createCareer(managerName, clubId, competition));
     setScreen('dashboard');
     setShowTutorial(true);
   }
@@ -55,25 +59,62 @@ export default function App() {
 
   function playMatch() {
     if (!career) return;
-    const fixture = nextFixture(career);
-    if (!fixture) return;
+    // A cup tie must produce a winner; a league fixture can end level.
+    const tie = career.competition === 'scottish-cup' ? cupTie(career) : null;
+    const fixture = career.competition === 'league' ? nextFixture(career) : null;
+    const next = tie ?? fixture;
+    if (!next) return;
+
     setFinished(null);
     setMatch(
       createMatch({
-        fixtureId: fixture.id,
-        homeClubId: fixture.homeClubId,
-        awayClubId: fixture.awayClubId,
+        fixtureId: next.id,
+        homeClubId: next.homeClubId,
+        awayClubId: next.awayClubId,
         userClubId: career.clubId,
         tactics: career.tactics,
+        mustHaveWinner: tie !== null,
       }),
     );
   }
 
   function finishMatch(state: MatchState) {
     if (!career) return;
-    setCareer(completeFixture(career, summariseMatch(state)));
+    const summary = summariseMatch(state);
+
+    if (career.competition === 'scottish-cup') {
+      const shootout = state.shootout;
+      const winnerClubId =
+        shootout?.winnerClubId ??
+        (state.homeScore > state.awayScore ? state.homeClubId : state.awayClubId);
+
+      setCareer(
+        completeCupTie(
+          career,
+          {
+            tieId: state.fixtureId,
+            homeScore: state.homeScore,
+            awayScore: state.awayScore,
+            shootout: shootout
+              ? { home: shootout.homeScore, away: shootout.awayScore }
+              : null,
+            winnerClubId,
+          },
+          summary,
+        ),
+      );
+    } else {
+      setCareer(completeFixture(career, summary));
+    }
+
     setMatch(null);
     setFinished(state);
+  }
+
+  function nextCupSeason() {
+    if (!career) return;
+    setCareer(startNextCupSeason(career));
+    setScreen('dashboard');
   }
 
   function endSeason() {
@@ -153,7 +194,7 @@ export default function App() {
             Tactics
           </NavButton>
           <NavButton current={screen} value="league" onSelect={setScreen}>
-            Table
+            {career.competition === 'scottish-cup' ? 'Cup' : 'Table'}
           </NavButton>
           <button type="button" className="nav__item nav__item--danger" onClick={abandonCareer}>
             New career
@@ -166,12 +207,18 @@ export default function App() {
           career={career}
           onPlayMatch={playMatch}
           onFinishSeason={endSeason}
+          onNextCup={nextCupSeason}
           onShowTutorial={() => setShowTutorial(true)}
         />
       )}
       {screen === 'squad' && <SquadScreen clubId={career.clubId} />}
       {screen === 'tactics' && <TacticsScreen tactics={career.tactics} onChange={updateTactics} />}
-      {screen === 'league' && <LeagueScreen career={career} />}
+      {screen === 'league' &&
+        (career.competition === 'scottish-cup' ? (
+          <CupScreen career={career} />
+        ) : (
+          <LeagueScreen career={career} />
+        ))}
 
       {showTutorial && (
         <TutorialModal

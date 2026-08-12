@@ -38,6 +38,7 @@ import {
 import { calculateProbability, clampProbability, type ActionContext } from './probability';
 import { createSeededRng, pick, randomInt, randomSeed, rollD100, type Rng } from './random';
 import { resolveAction } from './resolve';
+import { createShootout } from './shootout';
 import {
   ATTACKING_SITUATIONS,
   DEFENSIVE_ESCALATION,
@@ -55,6 +56,7 @@ const MAX_SEQUENCE_STEPS = 3;
 const CRITICAL_SUCCESS_BONUS = 10;
 const CRITICAL_FAILURE_PENALTY = 8;
 const FULL_TIME = 90;
+const END_OF_EXTRA_TIME = 120;
 /** Longest stretch of football simulated in one go between key moments. */
 const SIM_CHUNK_MINUTES = 10;
 
@@ -166,6 +168,8 @@ export interface MatchSetup {
   userClubId: string;
   tactics: Tactics;
   seed?: number;
+  /** Cup ties go to extra time and penalties rather than ending level. */
+  mustHaveWinner?: boolean;
 }
 
 /** Key moments, spread evenly across the ninety minutes. */
@@ -204,6 +208,9 @@ export function createMatch(setup: MatchSetup): MatchState {
     goals: [],
     currentEvent: null,
     lastResolution: null,
+    mustHaveWinner: setup.mustHaveWinner ?? false,
+    endMinute: FULL_TIME,
+    shootout: null,
     // createMatch consumed draws from the same seeded stream: one for the
     // budget, then one per scheduled minute.
     rngCursor: decisionMinutes.length + 1,
@@ -303,6 +310,25 @@ function simulateChunk(state: MatchState, targetMinute: number, rng: Rng): void 
   }
 }
 
+/**
+ * Adds another half hour, with a few more moments in it.
+ *
+ * Extra time is not simply simulated away — it is where a cup tie is usually
+ * won, so the manager keeps making decisions through it.
+ */
+function beginExtraTime(state: MatchState, rng: Rng): void {
+  state.endMinute = END_OF_EXTRA_TIME;
+  const extraMinutes = [
+    randomInt(rng, 93, 100),
+    randomInt(rng, 101, 109),
+    randomInt(rng, 110, 118),
+  ];
+  state.decisionMinutes = [...state.decisionMinutes, ...extraMinutes];
+  state.decisionBudget += extraMinutes.length;
+  state.phase = 'extra-time';
+  log(state, 'period', `Level at ninety. Thirty more minutes.`);
+}
+
 function finalisePossession(state: MatchState): void {
   const user = getClubWithSquad(state.userClubId);
   const opposition = getClubWithSquad(oppositionClubId(state));
@@ -393,10 +419,33 @@ export function advanceMatch(state: MatchState): MatchState {
   // a match to eight-to-twelve of them rather than thirty.
   const budgetSpent = next.decisions.length >= next.decisionBudget;
   if (next.momentsStarted >= next.decisionMinutes.length || budgetSpent) {
-    simulateUntil(next, FULL_TIME, rng);
-    finalisePossession(next);
-    next.phase = 'full-time';
+    simulateUntil(next, next.endMinute, rng);
     next.currentEvent = null;
+    const level = next.homeScore === next.awayScore;
+
+    // A cup tie has to produce a winner: another half hour, then penalties.
+    if (next.mustHaveWinner && level && next.endMinute === FULL_TIME) {
+      beginExtraTime(next, rng);
+      next.rngCursor += used();
+      return next;
+    }
+
+    finalisePossession(next);
+
+    if (next.mustHaveWinner && level) {
+      next.phase = 'shootout';
+      next.shootout = createShootout(
+        next.homeClubId,
+        next.awayClubId,
+        next.userClubId,
+        next.seed + 977,
+      );
+      log(next, 'period', 'Still level after extra time. It comes down to penalties.');
+      next.rngCursor += used();
+      return next;
+    }
+
+    next.phase = 'full-time';
     log(next, 'period', `Full time. ${next.homeScore}–${next.awayScore}.`);
     next.rngCursor += used();
     return next;

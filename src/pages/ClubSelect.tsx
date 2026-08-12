@@ -2,14 +2,33 @@ import { useState } from 'react';
 import { CLUBS } from '../data/clubs';
 import { LEAGUES } from '../data/leagues';
 import { getClubWithSquad } from '../data/world';
+import type { CompetitionMode } from '../types';
 
 interface Props {
-  onStart: (managerName: string, clubId: string) => void;
+  onStart: (managerName: string, clubId: string, competition: CompetitionMode) => void;
 }
+
+const COMPETITIONS: {
+  value: CompetitionMode;
+  label: string;
+  note: string;
+}[] = [
+  {
+    value: 'scottish-cup',
+    label: 'Scottish Cup',
+    note: 'Five or six ties, open draw, no second chances. Extra time and penalties if you need them. Short.',
+  },
+  {
+    value: 'league',
+    label: 'League season',
+    note: 'A full division, home and away, promotion and relegation at the end of it. Long.',
+  },
+];
 
 export function ClubSelect({ onStart }: Props) {
   const [managerName, setManagerName] = useState('');
   const [clubId, setClubId] = useState('greenock-morton');
+  const [competition, setCompetition] = useState<CompetitionMode>('scottish-cup');
 
   return (
     <div className="stack">
@@ -31,7 +50,7 @@ export function ClubSelect({ onStart }: Props) {
         className="card"
         onSubmit={(event) => {
           event.preventDefault();
-          onStart(managerName, clubId);
+          onStart(managerName, clubId, competition);
         }}
       >
         <div className="field">
@@ -51,6 +70,29 @@ export function ClubSelect({ onStart }: Props) {
             No account needed — your career is saved on this device.
           </p>
         </div>
+
+        <fieldset className="field">
+          <legend className="field__label">What are you playing for?</legend>
+          <div className="option-grid">
+            {COMPETITIONS.map((option) => (
+              <label
+                key={option.value}
+                className={`option ${option.value === competition ? 'is-selected' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="competition"
+                  value={option.value}
+                  checked={option.value === competition}
+                  onChange={() => setCompetition(option.value)}
+                  className="visually-hidden"
+                />
+                <span className="option__label">{option.label}</span>
+                <span className="option__note">{option.note}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         <fieldset className="field">
           <legend className="field__label">Choose your club</legend>
